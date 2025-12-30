@@ -1,10 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireAuth, createAuditEvent } from "@/lib/auth-utils";
 import {
-  calculateMetrics,
   calculateScenarioMetrics,
   calculateConservativeScenario,
   calculateAggressiveScenario,
@@ -66,7 +66,7 @@ export async function computeScenario(scenarioId: string): Promise<CalculationOu
     const resultsToCreate = output.periods.map((period) => ({
       scenarioId,
       period: period.period,
-      metrics: period as unknown as Record<string, unknown>,
+      metrics: period as unknown as Prisma.InputJsonValue,
       computeHash: output.computeHash,
     }));
 
@@ -154,7 +154,7 @@ export async function computeAllScenarios(versionId: string): Promise<{
         data: output.periods.map((period) => ({
           scenarioId: scenario.id,
           period: period.period,
-          metrics: period as unknown as Record<string, unknown>,
+          metrics: period as unknown as Prisma.InputJsonValue,
           computeHash: output.computeHash,
         })),
       });
