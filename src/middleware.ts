@@ -47,7 +47,9 @@ export default auth((req) => {
 
   // Check if user has an organization
   const user = req.auth?.user as ExtendedUser | undefined;
-  if (!user?.orgId && !nextUrl.pathname.startsWith("/onboarding")) {
+  const isOnboardingPath = nextUrl.pathname.startsWith("/onboarding") ||
+                           nextUrl.pathname === "/api/organizations";
+  if (!user?.orgId && !isOnboardingPath) {
     return NextResponse.redirect(new URL("/onboarding", nextUrl));
   }
 
