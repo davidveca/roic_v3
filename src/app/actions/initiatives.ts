@@ -11,6 +11,7 @@ import {
   type UpdateInitiativeInput,
   type InitiativeFilters,
 } from "@/lib/validations/initiative";
+import { Prisma } from "@prisma/client";
 import type { Initiative, InitiativeVersion, InitiativeTemplate } from "@prisma/client";
 
 export type InitiativeWithDetails = Initiative & {
@@ -172,7 +173,7 @@ export async function createInitiative(input: CreateInitiativeInput) {
         const driverValues = Object.entries(defaultDrivers).map(([key, value]) => ({
           versionId: version.id,
           driverKey: key,
-          value: value,
+          value: value as Prisma.InputJsonValue,
           source: "MANUAL" as const,
           enteredById: user.id,
         }));
