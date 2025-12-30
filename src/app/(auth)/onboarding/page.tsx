@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +11,7 @@ import { Loader2, Building2 } from "lucide-react";
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const { update } = useSession();
   const [orgName, setOrgName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,6 +32,15 @@ export default function OnboardingPage() {
         const data = await response.json();
         throw new Error(data.error || "Failed to create organization");
       }
+
+      const data = await response.json();
+
+      // Update the session with the new org info
+      await update({
+        orgId: data.organization.id,
+        orgName: data.organization.name,
+        orgSlug: data.organization.slug,
+      });
 
       router.push("/initiatives");
       router.refresh();
