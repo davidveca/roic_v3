@@ -71,7 +71,7 @@ export function InitiativeResults({ scenarios }: ResultsProps) {
   const steadyStateNopat = metrics[metrics.length - 1]?.nopat || 0;
 
   // Get TUFI from first period's working capital or summary
-  const initialInvestment = Math.abs(baselineScenario.results[0]?.metrics?.freeCashFlow as number || 0);
+  const initialInvestment = Math.abs((baselineScenario.results[0]?.metrics as Record<string, number>)?.freeCashFlow || 0);
 
   // Calculate ROIC
   const roic = initialInvestment > 0 ? steadyStateNopat / initialInvestment : 0;
