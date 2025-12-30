@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth";
+import { auth, type ExtendedUser } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
 // Public routes that don't require authentication
@@ -46,7 +46,8 @@ export default auth((req) => {
   }
 
   // Check if user has an organization
-  if (!req.auth?.user?.orgId && !nextUrl.pathname.startsWith("/onboarding")) {
+  const user = req.auth?.user as ExtendedUser | undefined;
+  if (!user?.orgId && !nextUrl.pathname.startsWith("/onboarding")) {
     return NextResponse.redirect(new URL("/onboarding", nextUrl));
   }
 
