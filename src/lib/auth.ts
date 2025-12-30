@@ -111,16 +111,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
     async session({ session, token }) {
       if (token) {
-        (session.user as ExtendedUser) = {
-          id: token.id as string,
-          email: token.email as string,
-          name: token.name as string | null,
-          image: token.picture as string | null,
-          orgId: token.orgId as string | null,
-          orgRole: token.orgRole as OrgRole,
-          orgName: token.orgName as string | undefined,
-          orgSlug: token.orgSlug as string | undefined,
-        };
+        (session.user as unknown as ExtendedUser).id = token.id as string;
+        (session.user as unknown as ExtendedUser).email = token.email as string;
+        (session.user as unknown as ExtendedUser).name = token.name as string | null;
+        (session.user as unknown as ExtendedUser).image = token.picture as string | null;
+        (session.user as unknown as ExtendedUser).orgId = token.orgId as string | null;
+        (session.user as unknown as ExtendedUser).orgRole = token.orgRole as OrgRole;
+        (session.user as unknown as ExtendedUser).orgName = token.orgName as string | undefined;
+        (session.user as unknown as ExtendedUser).orgSlug = token.orgSlug as string | undefined;
       }
       return session;
     },
