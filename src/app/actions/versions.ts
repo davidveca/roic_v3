@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireAuth, createAuditEvent, canPerformInitiativeAction } from "@/lib/auth-utils";
 import {
@@ -142,7 +143,7 @@ export async function createVersion(input: CreateVersionInput) {
             data: sourceVersion.driverValues.map((dv) => ({
               versionId: newVersion.id,
               driverKey: dv.driverKey,
-              value: dv.value,
+              value: dv.value as Prisma.InputJsonValue,
               source: dv.source,
               enteredById: dv.enteredById,
               notes: dv.notes,
@@ -157,7 +158,7 @@ export async function createVersion(input: CreateVersionInput) {
               versionId: newVersion.id,
               name: s.name,
               isBaseline: s.isBaseline,
-              overrides: s.overrides,
+              overrides: s.overrides as Prisma.InputJsonValue,
             })),
           });
         }
@@ -169,7 +170,7 @@ export async function createVersion(input: CreateVersionInput) {
           versionId: newVersion.id,
           name: "Base Case",
           isBaseline: true,
-          overrides: {},
+          overrides: {} as Prisma.InputJsonValue,
         },
       });
     }
@@ -315,13 +316,13 @@ export async function updateDriverValues(input: UpdateDriverValuesInput) {
         create: {
           versionId: validated.versionId,
           driverKey: dv.driverKey,
-          value: dv.value,
+          value: dv.value as Prisma.InputJsonValue,
           source: dv.source ?? "MANUAL",
           enteredById: user.id,
           notes: dv.notes,
         },
         update: {
-          value: dv.value,
+          value: dv.value as Prisma.InputJsonValue,
           source: dv.source ?? "MANUAL",
           enteredById: user.id,
           notes: dv.notes,
@@ -379,7 +380,7 @@ export async function createScenario(input: CreateScenarioInput) {
       versionId: validated.versionId,
       name: validated.name,
       isBaseline: validated.isBaseline,
-      overrides: validated.overrides,
+      overrides: validated.overrides as Prisma.InputJsonValue,
     },
   });
 
@@ -427,7 +428,7 @@ export async function updateScenario(scenarioId: string, input: UpdateScenarioIn
     where: { id: scenarioId },
     data: {
       ...(validated.name && { name: validated.name }),
-      ...(validated.overrides && { overrides: validated.overrides }),
+      ...(validated.overrides && { overrides: validated.overrides as Prisma.InputJsonValue }),
     },
   });
 
