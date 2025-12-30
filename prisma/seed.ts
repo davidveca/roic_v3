@@ -1,7 +1,12 @@
+import "dotenv/config";
+import { PrismaNeon } from "@prisma/adapter-neon";
 import { PrismaClient, DriverDataType, OrgRole } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
-const prisma = new PrismaClient();
+const adapter = new PrismaNeon({
+  connectionString: process.env.DATABASE_URL!,
+});
+const prisma = new PrismaClient({ adapter });
 
 // ============================================================================
 // DRIVER DEFINITIONS - The "paint by numbers" library
