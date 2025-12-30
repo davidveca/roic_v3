@@ -2,28 +2,25 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getInitiative } from "@/app/actions/initiatives";
 import { getVersion } from "@/app/actions/versions";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import {
   ArrowLeft,
-  Edit,
-  Play,
   FileText,
   Settings,
   MessageSquare,
   GitBranch,
   Calculator,
-  TrendingUp,
-  DollarSign,
-  Percent,
-  Clock,
+  Play,
 } from "lucide-react";
-import { formatDistanceToNow, format } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import { InitiativeDriversForm } from "@/components/initiatives/drivers-form";
 import { InitiativeResults } from "@/components/initiatives/results";
+import { InitiativeActions } from "@/components/initiatives/initiative-actions";
+import { CommentForm } from "@/components/initiatives/comment-form";
+import { Button } from "@/components/ui/button";
 
 const statusColors: Record<string, string> = {
   IDEA: "bg-gray-100 text-gray-700",
@@ -114,16 +111,14 @@ export default async function InitiativeDetailPage({ params }: PageProps) {
             )}
           </div>
 
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm">
-              <Edit className="h-4 w-4 mr-2" />
-              Edit
-            </Button>
-            <Button size="sm">
-              <Play className="h-4 w-4 mr-2" />
-              Compute
-            </Button>
-          </div>
+          <InitiativeActions
+            initiativeId={initiative.id}
+            versionId={latestVersion?.id || null}
+            initiative={{
+              title: initiative.title,
+              description: initiative.description,
+            }}
+          />
         </div>
       </div>
 
@@ -132,16 +127,11 @@ export default async function InitiativeDetailPage({ params }: PageProps) {
       {/* Version Selector */}
       {initiative.versions.length > 0 && (
         <div className="mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <GitBranch className="h-4 w-4 text-gray-400" />
-              <span className="text-sm font-medium">Version</span>
-            </div>
-            <Button variant="outline" size="sm">
-              New Version
-            </Button>
+          <div className="flex items-center gap-2 mb-3">
+            <GitBranch className="h-4 w-4 text-gray-400" />
+            <span className="text-sm font-medium">Version</span>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             {initiative.versions.slice(0, 5).map((version) => (
               <Badge
                 key={version.id}
@@ -273,16 +263,20 @@ export default async function InitiativeDetailPage({ params }: PageProps) {
                 Comments and notes on this version
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-6">
+              {latestVersion && (
+                <CommentForm versionId={latestVersion.id} />
+              )}
+
               {versionDetails?.comments && versionDetails.comments.length > 0 ? (
-                <div className="space-y-4">
+                <div className="space-y-4 pt-4 border-t">
                   {versionDetails.comments.map((comment) => (
                     <div key={comment.id} className="flex gap-3">
-                      <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-sm font-medium">
+                      <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-sm font-medium shrink-0">
                         {comment.author.name?.charAt(0) ?? comment.author.email.charAt(0).toUpperCase()}
                       </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-medium text-sm">
                             {comment.author.name ?? comment.author.email}
                           </span>
@@ -301,7 +295,7 @@ export default async function InitiativeDetailPage({ params }: PageProps) {
                   ))}
                 </div>
               ) : (
-                <p className="text-center text-gray-500 py-8">
+                <p className="text-center text-gray-500 py-4">
                   No comments yet. Start a discussion about this initiative.
                 </p>
               )}
