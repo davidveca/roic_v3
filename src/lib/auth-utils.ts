@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth";
+import { auth, type ExtendedUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { prisma } from "./db";
@@ -8,15 +8,16 @@ import type { OrgRole, InitiativeRole } from "@prisma/client";
  * Get the current authenticated user session
  * Cached per request to avoid multiple auth calls
  */
-export const getCurrentUser = cache(async () => {
+export const getCurrentUser = cache(async (): Promise<ExtendedUser | null> => {
   const session = await auth();
-  return session?.user ?? null;
+  if (!session?.user) return null;
+  return session.user as ExtendedUser;
 });
 
 /**
  * Require authentication - redirects to login if not authenticated
  */
-export async function requireAuth() {
+export async function requireAuth(): Promise<ExtendedUser> {
   const user = await getCurrentUser();
   if (!user) {
     redirect("/login");
