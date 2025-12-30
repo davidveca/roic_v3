@@ -26,6 +26,7 @@ export async function POST(request: Request) {
       );
     }
 
+    const userId = session.user.id;
     const body = await request.json();
     const validated = createOrgSchema.parse(body);
 
@@ -54,7 +55,7 @@ export async function POST(request: Request) {
 
       // Update user to belong to this org as admin
       await tx.user.update({
-        where: { id: session.user.id },
+        where: { id: userId },
         data: {
           orgId: newOrg.id,
           orgRole: "ADMIN",
@@ -68,7 +69,7 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: error.errors[0].message },
+        { error: error.issues[0].message },
         { status: 400 }
       );
     }
