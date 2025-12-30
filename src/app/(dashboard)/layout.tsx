@@ -18,9 +18,9 @@ export default async function DashboardLayout({
     <div className="flex h-screen overflow-hidden bg-white dark:bg-gray-950">
       <Sidebar
         user={{
-          name: session.user.name,
-          email: session.user.email,
-          orgName: session.user.orgName,
+          name: session.user.name ?? null,
+          email: session.user.email ?? "",
+          orgName: (session.user as { orgName?: string }).orgName,
         }}
       />
       <main className="flex-1 overflow-y-auto">
