@@ -16,8 +16,13 @@ import {
 } from "@/components/ui/card";
 import { Loader2, Mail } from "lucide-react";
 
-// Domain restriction for Wahl Clipper
-const ALLOWED_DOMAIN = "@wahlclipper.com";
+// Allowed email domains
+const ALLOWED_DOMAINS = [
+  "@wahlclipper.com",
+  "@tedinitiatives.com",
+  "@wayfinderco.com",
+  "@capstonepartners.com",
+];
 
 function LoginForm() {
   const searchParams = useSearchParams();
@@ -35,8 +40,9 @@ function LoginForm() {
     setFormError(null);
 
     // Domain validation
-    if (!email.toLowerCase().endsWith(ALLOWED_DOMAIN)) {
-      setFormError("Only @wahlclipper.com email addresses are allowed");
+    const emailLower = email.toLowerCase();
+    if (!ALLOWED_DOMAINS.some(domain => emailLower.endsWith(domain))) {
+      setFormError("Please use an authorized company email address");
       setIsLoading(false);
       return;
     }
@@ -98,7 +104,7 @@ function LoginForm() {
       <CardHeader className="space-y-1">
         <CardTitle className="text-2xl font-bold">Sign in</CardTitle>
         <CardDescription>
-          Enter your Wahl email to receive a sign-in link
+          Enter your company email to receive a sign-in link
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
@@ -113,14 +119,14 @@ function LoginForm() {
             <Input
               id="email"
               type="email"
-              placeholder="you@wahlclipper.com"
+              placeholder="you@company.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
               disabled={isLoading}
             />
             <p className="text-xs text-gray-500">
-              Only @wahlclipper.com email addresses are allowed
+              Authorized domains: wahlclipper.com, tedinitiatives.com, wayfinderco.com, capstonepartners.com
             </p>
           </div>
         </CardContent>
@@ -145,7 +151,7 @@ function LoginFormFallback() {
       <CardHeader className="space-y-1">
         <CardTitle className="text-2xl font-bold">Sign in</CardTitle>
         <CardDescription>
-          Enter your Wahl email to receive a sign-in link
+          Enter your company email to receive a sign-in link
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
