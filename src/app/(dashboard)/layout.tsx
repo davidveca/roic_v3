@@ -16,17 +16,14 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-white dark:bg-gray-950">
+    <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar
         user={{
           name: session.user.name ?? null,
           email: session.user.email ?? "",
-          orgName: (session.user as { orgName?: string }).orgName,
         }}
       />
-      <main className="flex-1 overflow-y-auto p-6">
-        {children}
-      </main>
+      <main className="flex-1 overflow-y-auto p-6">{children}</main>
       <WelcomeTour />
       <Toaster position="top-right" />
     </div>

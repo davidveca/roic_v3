@@ -167,3 +167,69 @@ export interface ScenarioComparison {
   aggressive?: CalculationOutput;
   scenarios: Record<string, CalculationOutput>;
 }
+
+// ============================================================================
+// DECISION FRAMEWORK TYPES
+// ============================================================================
+
+// RAG status for initiative assessment
+export type RAGStatus = "GREEN" | "AMBER" | "RED";
+
+// Decision recommendation
+export type DecisionRecommendation =
+  | "STRONG_CANDIDATE"
+  | "BELOW_HURDLE"
+  | "HIGH_RISK_PROFILE"
+  | "MARGINAL_ROIC_HIGH_EXPOSURE";
+
+// Review level based on investment size
+export type ReviewLevel = "LIGHT_TOUCH" | "STANDARD" | "BOARD_REVIEW";
+
+// Extended metrics with decision framework
+export interface DecisionMetrics {
+  ragStatus: RAGStatus;
+  recommendation: DecisionRecommendation;
+  reviewLevel: ReviewLevel;
+
+  // Expected value range (min/expected/max ROIC)
+  roicRange: {
+    conservative: number;
+    expected: number;
+    aggressive: number;
+  };
+
+  // Absolute return range
+  absoluteReturnRange: {
+    conservative: number;
+    expected: number;
+    aggressive: number;
+  };
+
+  // Risk-adjusted metrics
+  expectedValue: number; // NOPAT * probability
+  riskScore: number; // 0-100 based on variance and probability
+
+  // Threshold comparisons
+  vsHurdleRate: number; // ROIC - hurdle rate (as decimal, e.g., 0.05 = 5%)
+  investmentSize: number;
+}
+
+// Labels for display
+export const RECOMMENDATION_LABELS: Record<DecisionRecommendation, string> = {
+  STRONG_CANDIDATE: "Strong Candidate",
+  BELOW_HURDLE: "Below Hurdle",
+  HIGH_RISK_PROFILE: "High Risk Profile",
+  MARGINAL_ROIC_HIGH_EXPOSURE: "Marginal ROIC, High Exposure",
+};
+
+export const REVIEW_LEVEL_LABELS: Record<ReviewLevel, string> = {
+  LIGHT_TOUCH: "Light Touch (<$50K)",
+  STANDARD: "Standard Review",
+  BOARD_REVIEW: "Board Review (>$2M)",
+};
+
+export const RAG_LABELS: Record<RAGStatus, string> = {
+  GREEN: "Strong",
+  AMBER: "Caution",
+  RED: "Below Target",
+};

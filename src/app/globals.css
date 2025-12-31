@@ -44,75 +44,124 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
+
+  /* RAG indicator colors */
+  --color-rag-green: var(--rag-green);
+  --color-rag-amber: var(--rag-amber);
+  --color-rag-red: var(--rag-red);
+
+  /* Wahl brand colors */
+  --color-wahl-gold: var(--wahl-gold);
+  --color-wahl-gold-light: var(--wahl-gold-light);
 }
 
 :root {
   --radius: 0.625rem;
   --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --foreground: oklch(0.1 0 0);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.1 0 0);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.1 0 0);
+
+  /* Primary: Black (Wahl brand) */
+  --primary: oklch(0.15 0 0);
   --primary-foreground: oklch(0.985 0 0);
+
   --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
+  --secondary-foreground: oklch(0.15 0 0);
   --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --muted-foreground: oklch(0.5 0 0);
+
+  /* Accent: Gold (Wahl brand) */
+  --accent: oklch(0.8 0.12 85);
+  --accent-foreground: oklch(0.15 0 0);
+
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
+  --border: oklch(0.9 0 0);
+  --input: oklch(0.9 0 0);
+
+  /* Ring: Gold for focus states */
+  --ring: oklch(0.7 0.12 85);
+
+  /* Chart colors - professional palette */
+  --chart-1: oklch(0.15 0 0);
+  --chart-2: oklch(0.75 0.12 85);
+  --chart-3: oklch(0.5 0.15 150);
+  --chart-4: oklch(0.6 0.12 250);
+  --chart-5: oklch(0.7 0.15 30);
+
+  /* Sidebar: Light gray with black accents */
+  --sidebar: oklch(0.98 0 0);
+  --sidebar-foreground: oklch(0.15 0 0);
+  --sidebar-primary: oklch(0.15 0 0);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar-accent: oklch(0.95 0 0);
+  --sidebar-accent-foreground: oklch(0.15 0 0);
+  --sidebar-border: oklch(0.9 0 0);
+  --sidebar-ring: oklch(0.7 0.12 85);
+
+  /* RAG indicator colors */
+  --rag-green: oklch(0.6 0.18 145);
+  --rag-amber: oklch(0.75 0.15 75);
+  --rag-red: oklch(0.55 0.22 27);
+
+  /* Wahl brand colors */
+  --wahl-gold: oklch(0.75 0.12 85);
+  --wahl-gold-light: oklch(0.9 0.08 85);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
+  --background: oklch(0.12 0 0);
   --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
+  --card: oklch(0.16 0 0);
   --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
+  --popover: oklch(0.16 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
+
+  /* Primary: Light for dark mode */
+  --primary: oklch(0.92 0 0);
+  --primary-foreground: oklch(0.12 0 0);
+
+  --secondary: oklch(0.22 0 0);
   --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.22 0 0);
+  --muted-foreground: oklch(0.65 0 0);
+
+  /* Accent: Gold (brighter for dark mode) */
+  --accent: oklch(0.8 0.15 85);
+  --accent-foreground: oklch(0.12 0 0);
+
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
+  --ring: oklch(0.75 0.12 85);
+
+  /* Chart colors for dark mode */
+  --chart-1: oklch(0.8 0.15 85);
+  --chart-2: oklch(0.6 0.15 150);
+  --chart-3: oklch(0.7 0.18 30);
+  --chart-4: oklch(0.65 0.15 270);
+  --chart-5: oklch(0.6 0.12 200);
+
+  /* Sidebar: Dark with gold accents */
+  --sidebar: oklch(0.16 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-primary: oklch(0.8 0.15 85);
+  --sidebar-primary-foreground: oklch(0.12 0 0);
+  --sidebar-accent: oklch(0.22 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar-ring: oklch(0.75 0.12 85);
+
+  /* RAG colors slightly brighter for dark mode */
+  --rag-green: oklch(0.65 0.2 145);
+  --rag-amber: oklch(0.8 0.18 75);
+  --rag-red: oklch(0.6 0.25 27);
+
+  /* Wahl brand colors for dark mode */
+  --wahl-gold: oklch(0.8 0.15 85);
+  --wahl-gold-light: oklch(0.7 0.1 85);
 }
 
 @layer base {
@@ -121,5 +170,28 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Utility classes for RAG indicators */
+@layer utilities {
+  .rag-green {
+    @apply bg-rag-green/10 text-rag-green border-rag-green/30;
+  }
+  .rag-amber {
+    @apply bg-rag-amber/10 text-rag-amber border-rag-amber/30;
+  }
+  .rag-red {
+    @apply bg-rag-red/10 text-rag-red border-rag-red/30;
+  }
+
+  .rag-green-solid {
+    @apply bg-rag-green text-white;
+  }
+  .rag-amber-solid {
+    @apply bg-rag-amber text-black;
+  }
+  .rag-red-solid {
+    @apply bg-rag-red text-white;
   }
 }

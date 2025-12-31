@@ -4,11 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
-  LayoutDashboard,
+  TrendingUp,
   FileStack,
   BarChart3,
   Settings,
-  Users,
   BookOpen,
   LogOut,
 } from "lucide-react";
@@ -44,11 +43,6 @@ const secondaryNav: NavItem[] = [
     icon: BookOpen,
   },
   {
-    title: "Team",
-    href: "/team",
-    icon: Users,
-  },
-  {
     title: "Settings",
     href: "/settings",
     icon: Settings,
@@ -59,7 +53,6 @@ interface SidebarProps {
   user: {
     name: string | null;
     email: string;
-    orgName?: string;
   };
 }
 
@@ -67,22 +60,21 @@ export function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname();
 
   return (
-    <div className="flex h-full w-64 flex-col border-r bg-gray-50/40 dark:bg-gray-900/40">
-      {/* Logo */}
+    <div className="flex h-full w-64 flex-col border-r bg-sidebar">
+      {/* Logo - Wahl ROIC */}
       <div className="flex h-16 items-center border-b px-6">
         <Link href="/initiatives" className="flex items-center gap-2">
-          <LayoutDashboard className="h-6 w-6 text-blue-600" />
-          <span className="font-semibold text-lg">ROIC Modeler</span>
+          <div className="flex h-8 w-8 items-center justify-center rounded bg-black">
+            <TrendingUp className="h-4 w-4 text-amber-400" />
+          </div>
+          <div>
+            <span className="font-bold text-lg tracking-tight">Wahl</span>
+            <span className="font-medium text-lg text-muted-foreground ml-1">
+              ROIC
+            </span>
+          </div>
         </Link>
       </div>
-
-      {/* Organization */}
-      {user.orgName && (
-        <div className="px-6 py-3 border-b">
-          <p className="text-xs text-gray-500 uppercase tracking-wider">Organization</p>
-          <p className="font-medium truncate">{user.orgName}</p>
-        </div>
-      )}
 
       {/* Navigation */}
       <ScrollArea className="flex-1 px-3 py-4">
@@ -94,14 +86,14 @@ export function Sidebar({ user }: SidebarProps) {
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                 pathname === item.href || pathname.startsWith(`${item.href}/`)
-                  ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
-                  : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                  ? "bg-black text-white dark:bg-amber-500/20 dark:text-amber-400"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
               <item.icon className="h-4 w-4" />
               {item.title}
               {item.badge && (
-                <span className="ml-auto rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-600">
+                <span className="ml-auto rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-900/50 dark:text-amber-400">
                   {item.badge}
                 </span>
               )}
@@ -119,8 +111,8 @@ export function Sidebar({ user }: SidebarProps) {
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                 pathname === item.href
-                  ? "bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-white"
-                  : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
               <item.icon className="h-4 w-4" />
@@ -132,24 +124,28 @@ export function Sidebar({ user }: SidebarProps) {
 
       {/* User Section */}
       <div className="border-t p-4">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="h-9 w-9 rounded-full bg-blue-100 flex items-center justify-center">
-            <span className="text-sm font-medium text-blue-700">
+        <div className="mb-3 flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-black text-white dark:bg-amber-500/20">
+            <span className="text-sm font-medium dark:text-amber-400">
               {user.name?.charAt(0) ?? user.email.charAt(0).toUpperCase()}
             </span>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">{user.name ?? "User"}</p>
-            <p className="text-xs text-gray-500 truncate">{user.email}</p>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium">
+              {user.name ?? "User"}
+            </p>
+            <p className="truncate text-xs text-muted-foreground">
+              {user.email}
+            </p>
           </div>
         </div>
         <Button
           variant="ghost"
           size="sm"
-          className="w-full justify-start text-gray-600"
+          className="w-full justify-start text-muted-foreground hover:text-foreground"
           onClick={() => signOut({ callbackUrl: "/login" })}
         >
-          <LogOut className="h-4 w-4 mr-2" />
+          <LogOut className="mr-2 h-4 w-4" />
           Sign out
         </Button>
       </div>

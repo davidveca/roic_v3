@@ -4,97 +4,91 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireAuth, createAuditEvent } from "@/lib/auth-utils";
 import { z } from "zod";
-import { Prisma } from "@prisma/client";
 
-const updateOrgSettingsSchema = z.object({
-  name: z.string().min(1).optional(),
-  taxRate: z.number().min(0).max(1).optional(),
-  discountRate: z.number().min(0).max(1).optional(),
-  modelingPeriods: z.number().int().min(1).max(20).optional(),
+const updateSettingsSchema = z.object({
+  companyName: z.string().min(1).optional(),
+  hurdleRate: z.number().min(0).max(100).optional(),
+  taxRate: z.number().min(0).max(100).optional(),
+  currency: z.string().min(1).optional(),
+  fiscalYearStart: z.number().int().min(1).max(12).optional(),
+  boardReviewThreshold: z.number().min(0).optional(),
+  lightTouchThreshold: z.number().min(0).optional(),
 });
 
-export type UpdateOrgSettingsInput = z.infer<typeof updateOrgSettingsSchema>;
+export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;
 
-export async function updateOrgSettings(input: UpdateOrgSettingsInput) {
-  const user = await requireAuth();
+/**
+ * Get application settings (singleton)
+ */
+export async function getAppSettings() {
+  await requireAuth();
 
-  if (!user.orgId) {
-    throw new Error("User is not associated with an organization");
-  }
-
-  // Only admin can update settings
-  if (user.orgRole !== "ADMIN") {
-    throw new Error("Only administrators can update organization settings");
-  }
-
-  const validated = updateOrgSettingsSchema.parse(input);
-
-  const org = await prisma.organization.findUnique({
-    where: { id: user.orgId },
-    select: { settings: true, name: true },
+  // Get or create settings singleton
+  let settings = await prisma.settings.findUnique({
+    where: { id: "singleton" },
   });
 
-  if (!org) {
-    throw new Error("Organization not found");
+  if (!settings) {
+    settings = await prisma.settings.create({
+      data: { id: "singleton" },
+    });
   }
 
-  const currentSettings = (org.settings as Record<string, unknown>) || {};
+  // Get initiative count
+  const initiativeCount = await prisma.initiative.count();
 
-  const updatedSettings = {
-    ...currentSettings,
-    ...(validated.taxRate !== undefined && { taxRate: validated.taxRate }),
-    ...(validated.discountRate !== undefined && { discountRate: validated.discountRate }),
-    ...(validated.modelingPeriods !== undefined && { modelingPeriods: validated.modelingPeriods }),
+  return {
+    ...settings,
+    _count: {
+      initiatives: initiativeCount,
+    },
   };
+}
 
-  const updated = await prisma.organization.update({
-    where: { id: user.orgId },
+/**
+ * Update application settings
+ */
+export async function updateAppSettings(input: UpdateSettingsInput) {
+  await requireAuth();
+
+  const validated = updateSettingsSchema.parse(input);
+
+  // Get current settings
+  const current = await prisma.settings.findUnique({
+    where: { id: "singleton" },
+  });
+
+  if (!current) {
+    throw new Error("Settings not found");
+  }
+
+  const updated = await prisma.settings.update({
+    where: { id: "singleton" },
     data: {
-      ...(validated.name && { name: validated.name }),
-      settings: updatedSettings as Prisma.InputJsonValue,
+      ...(validated.companyName !== undefined && { companyName: validated.companyName }),
+      ...(validated.hurdleRate !== undefined && { hurdleRate: validated.hurdleRate }),
+      ...(validated.taxRate !== undefined && { taxRate: validated.taxRate }),
+      ...(validated.currency !== undefined && { currency: validated.currency }),
+      ...(validated.fiscalYearStart !== undefined && { fiscalYearStart: validated.fiscalYearStart }),
+      ...(validated.boardReviewThreshold !== undefined && {
+        boardReviewThreshold: validated.boardReviewThreshold,
+      }),
+      ...(validated.lightTouchThreshold !== undefined && {
+        lightTouchThreshold: validated.lightTouchThreshold,
+      }),
     },
   });
 
   await createAuditEvent({
-    action: "ORG_SETTINGS_UPDATED",
-    resourceType: "Organization",
-    resourceId: user.orgId,
-    oldValue: { name: org.name, settings: org.settings },
-    newValue: { name: validated.name || org.name, settings: updatedSettings },
+    action: "SETTINGS_UPDATED",
+    resourceType: "Settings",
+    resourceId: "singleton",
+    oldValue: current,
+    newValue: updated,
   });
 
   revalidatePath("/settings");
+  revalidatePath("/initiatives");
 
   return updated;
-}
-
-export async function getOrgSettings() {
-  const user = await requireAuth();
-
-  if (!user.orgId) {
-    throw new Error("User is not associated with an organization");
-  }
-
-  const org = await prisma.organization.findUnique({
-    where: { id: user.orgId },
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      settings: true,
-      createdAt: true,
-      _count: {
-        select: {
-          users: true,
-          initiatives: true,
-        },
-      },
-    },
-  });
-
-  if (!org) {
-    throw new Error("Organization not found");
-  }
-
-  return org;
 }

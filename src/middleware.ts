@@ -1,12 +1,10 @@
-import { auth, type ExtendedUser } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
 // Public routes that don't require authentication
 const publicRoutes = [
   "/login",
-  "/register",
-  "/forgot-password",
-  "/reset-password",
+  "/check-email",
   "/input", // Public input request pages
 ];
 
@@ -22,17 +20,21 @@ export default auth((req) => {
 
   // Check if current path is public
   const isPublicRoute = publicRoutes.some(
-    (route) => nextUrl.pathname === route || nextUrl.pathname.startsWith(`${route}/`)
+    (route) =>
+      nextUrl.pathname === route || nextUrl.pathname.startsWith(`${route}/`)
   );
 
-  const isPublicApiRoute = publicApiRoutes.some(
-    (route) => nextUrl.pathname.startsWith(route)
+  const isPublicApiRoute = publicApiRoutes.some((route) =>
+    nextUrl.pathname.startsWith(route)
   );
 
   // Allow public routes
   if (isPublicRoute || isPublicApiRoute) {
-    // Redirect authenticated users away from login/register
-    if (isAuthenticated && (nextUrl.pathname === "/login" || nextUrl.pathname === "/register")) {
+    // Redirect authenticated users away from login/check-email
+    if (
+      isAuthenticated &&
+      (nextUrl.pathname === "/login" || nextUrl.pathname === "/check-email")
+    ) {
       return NextResponse.redirect(new URL("/initiatives", nextUrl));
     }
     return NextResponse.next();
@@ -45,14 +47,7 @@ export default auth((req) => {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Check if user has an organization
-  const user = req.auth?.user as ExtendedUser | undefined;
-  const isOnboardingPath = nextUrl.pathname.startsWith("/onboarding") ||
-                           nextUrl.pathname === "/api/organizations";
-  if (!user?.orgId && !isOnboardingPath) {
-    return NextResponse.redirect(new URL("/onboarding", nextUrl));
-  }
-
+  // No org check needed - single tenant
   return NextResponse.next();
 });
 

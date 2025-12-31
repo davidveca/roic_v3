@@ -1,5 +1,5 @@
-// ROIC V3 SaaS - Complete Data Model
-// Multi-tenant, versioned, audit-ready initiative modeling workspace
+// ROIC V3 SaaS - Single-Tenant Data Model for Wahl Clipper Corporation
+// Versioned, audit-ready initiative modeling workspace
 
 generator client {
   provider = "prisma-client-js"
@@ -7,26 +7,28 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // ============================================================================
-// MULTI-TENANT CORE
+// SETTINGS (Singleton - replaces Organization)
 // ============================================================================
 
-model Organization {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
-  settings  Json     @default("{}") // TUFI definition, tax rate defaults, etc.
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  users       User[]
-  initiatives Initiative[]
-  driverDefs  DriverDefinition[]
-  templates   InitiativeTemplate[]
-  auditEvents AuditEvent[]
+model Settings {
+  id                   String   @id @default("singleton")
+  hurdleRate           Float    @default(12) // Default hurdle rate %
+  taxRate              Float    @default(25) // Default tax rate %
+  currency             String   @default("USD")
+  companyName          String   @default("Wahl Clipper Corporation")
+  fiscalYearStart      Int      @default(1) // Month (1 = January)
+  boardReviewThreshold Float    @default(2000000) // >$2M = board review
+  lightTouchThreshold  Float    @default(50000) // <$50K = light touch
+  updatedAt            DateTime @updatedAt
 }
+
+// ============================================================================
+// USER (Simplified - no org roles)
+// ============================================================================
 
 model User {
   id            String    @id @default(cuid())
@@ -34,32 +36,19 @@ model User {
   emailVerified DateTime?
   name          String?
   image         String?
-  passwordHash  String? // For credentials provider
-  orgId         String?
-  orgRole       OrgRole   @default(VIEWER)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  org                  Organization?        @relation(fields: [orgId], references: [id])
-  accounts             Account[]
-  sessions             Session[]
-  ownedInitiatives     Initiative[]
-  initiativeRoles      InitiativeUserRole[]
-  createdVersions      InitiativeVersion[]  @relation("CreatedBy")
-  lockedVersions       InitiativeVersion[]  @relation("LockedBy")
-  driverValuesEntered  DriverValue[]
-  auditEvents          AuditEvent[]
-  comments             Comment[]
-  inputRequestsSent    InputRequest[]       @relation("Requester")
+  accounts              Account[]
+  sessions              Session[]
+  ownedInitiatives      Initiative[]
+  createdVersions       InitiativeVersion[] @relation("CreatedBy")
+  lockedVersions        InitiativeVersion[] @relation("LockedBy")
+  driverValuesEntered   DriverValue[]
+  auditEvents           AuditEvent[]
+  comments              Comment[]
+  inputRequestsSent     InputRequest[]      @relation("Requester")
   inputRequestsReceived InputRequest[]      @relation("Assignee")
-}
-
-enum OrgRole {
-  ADMIN
-  FINANCE
-  EDITOR
-  CONTRIBUTOR
-  VIEWER
 }
 
 // ============================================================================
@@ -106,23 +95,12 @@ model VerificationToken {
 // INITIATIVE & VERSIONING
 // ============================================================================
 
-model Initiative {
-  id         String           @id @default(cuid())
-  orgId      String
-  title      String
-  description String?
-  templateId String?
-  ownerId    String
-  status     InitiativeStatus @default(DRAFT)
-  tags       Json             @default("[]") // BU, site, function, customer tier, product family
-  createdAt  DateTime         @default(now())
-  updatedAt  DateTime         @updatedAt
-
-  org       Organization        @relation(fields: [orgId], references: [id])
-  owner     User                @relation(fields: [ownerId], references: [id])
-  template  InitiativeTemplate? @relation(fields: [templateId], references: [id])
-  versions  InitiativeVersion[]
-  userRoles InitiativeUserRole[]
+enum InitiativeType {
+  COST_REDUCTION
+  ACQUISITION
+  NEW_PRODUCT
+  CAPEX_PROJECT
+  OTHER
 }
 
 enum InitiativeStatus {
@@ -135,15 +113,48 @@ enum InitiativeStatus {
   ARCHIVED
 }
 
+model Initiative {
+  id                      String           @id @default(cuid())
+  title                   String
+  description             String?
+  templateId              String?
+  ownerId                 String
+  ownerEmail              String // Denormalized for quick access checks
+  collaboratorEmails      String? // Comma-separated emails
+  isPublic                Boolean          @default(false)
+  type                    InitiativeType   @default(OTHER)
+  status                  InitiativeStatus @default(DRAFT)
+  tags                    Json             @default("[]") // BU, site, function, etc.
+
+  // Data warehouse integration
+  externalId              String?          @unique // UUID for Snowflake/Fivetran sync
+  syncedAt                DateTime?
+
+  // Realization tracking (actuals vs modeled)
+  actualsNopat            Decimal?         @db.Decimal(18, 2)
+  actualsInvestedCapital  Decimal?         @db.Decimal(18, 2)
+
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
+
+  owner    User                @relation(fields: [ownerId], references: [id])
+  template InitiativeTemplate? @relation(fields: [templateId], references: [id])
+  versions InitiativeVersion[]
+
+  @@index([ownerEmail])
+  @@index([isPublic])
+  @@index([type])
+}
+
 model InitiativeVersion {
   id           String       @id @default(cuid())
   initiativeId String
-  versionLabel String       // v0.1, v1.0, etc.
+  versionLabel String // v0.1, v1.0, etc.
   state        VersionState @default(DRAFT)
   createdById  String
   lockedAt     DateTime?
   lockedById   String?
-  notes        String?      // Version notes/changelog
+  notes        String? // Version notes/changelog
   createdAt    DateTime     @default(now())
 
   initiative    Initiative     @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
@@ -164,50 +175,26 @@ enum VersionState {
   SUPERSEDED
 }
 
-model InitiativeUserRole {
-  id           String         @id @default(cuid())
-  initiativeId String
-  userId       String
-  role         InitiativeRole
-  createdAt    DateTime       @default(now())
-
-  initiative Initiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
-  user       User       @relation(fields: [userId], references: [id])
-
-  @@unique([initiativeId, userId])
-}
-
-enum InitiativeRole {
-  OWNER
-  CONTRIBUTOR
-  REVIEWER
-  VIEWER
-}
-
 // ============================================================================
 // DRIVER LIBRARY & VALUES
 // ============================================================================
 
 model DriverDefinition {
   id           String         @id @default(cuid())
-  orgId        String?        // null = global/system driver
-  key          String         // unique identifier like "freight_savings_pct"
+  key          String         @unique // unique identifier like "freight_savings_pct"
   name         String
   description  String?
-  helpText     String?        // "explain like I'm in ops"
-  units        String         // %, $, units, days
+  helpText     String? // "explain like I'm in ops"
+  units        String // %, $, units, days
   dataType     DriverDataType
-  validation   Json?          // { min, max, required, step, options, etc. }
+  validation   Json? // { min, max, required, step, options, etc. }
   defaultValue Json?
-  category     String         // revenue, cost, working_capital, capex, risk
+  category     String // revenue, cost, working_capital, capex, risk
   sortOrder    Int            @default(0)
   isActive     Boolean        @default(true)
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
-  org Organization? @relation(fields: [orgId], references: [id])
-
-  @@unique([orgId, key])
   @@index([category])
 }
 
@@ -219,7 +206,7 @@ enum DriverDataType {
   DATE
   SELECT
   BOOLEAN
-  CURVE      // for ramp curves (array of period values)
+  CURVE // for ramp curves (array of period values)
   TEXT
 }
 
@@ -227,7 +214,7 @@ model DriverValue {
   id          String      @id @default(cuid())
   versionId   String
   driverKey   String
-  value       Json        // flexible: number, string, array for curves
+  value       Json // flexible: number, string, array for curves
   source      ValueSource @default(MANUAL)
   enteredById String?
   notes       String?
@@ -270,9 +257,9 @@ model Scenario {
 model CalculationResult {
   id          String   @id @default(cuid())
   scenarioId  String
-  period      Int      // year 1, 2, 3... (0 = summary/total)
-  metrics     Json     // { nopat, tufi, roic, payback, irr, revenueImpact, costImpact, etc. }
-  computeHash String   // hash of inputs for reproducibility
+  period      Int // year 1, 2, 3... (0 = summary/total)
+  metrics     Json // { nopat, tufi, roic, payback, irr, revenueImpact, costImpact, etc. }
+  computeHash String // hash of inputs for reproducibility
   computedAt  DateTime @default(now())
 
   scenario Scenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
@@ -291,10 +278,10 @@ model InputRequest {
   requesterId   String
   assigneeEmail String
   assigneeId    String?
-  driverKeys    String[]      // which drivers they can fill
+  driverKeys    String[] // which drivers they can fill
   dueDate       DateTime?
   status        RequestStatus @default(PENDING)
-  message       String?       // optional message from requester
+  message       String? // optional message from requester
   createdAt     DateTime      @default(now())
   completedAt   DateTime?
 
@@ -319,7 +306,7 @@ model InputRequestToken {
   tokenHash String    @unique // store only hash, not the actual token
   expiresAt DateTime
   usedAt    DateTime?
-  scope     Json      // { driverKeys: [...], permissions: [...] }
+  scope     Json // { driverKeys: [...], permissions: [...] }
   createdAt DateTime  @default(now())
 
   request InputRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
@@ -331,24 +318,20 @@ model InputRequestToken {
 
 model InitiativeTemplate {
   id              String   @id @default(cuid())
-  orgId           String?  // null = system template
-  name            String   // "Freight Optimization", "Price/Mix", etc.
+  name            String   @unique
   description     String?
-  category        String?  // revenue, cost, working_capital, etc.
+  category        String? // revenue, cost, working_capital, etc.
   requiredDrivers String[] // driver keys that must be filled
   optionalDrivers String[] // driver keys that are optional
   defaultDrivers  Json     @default("{}") // { driverKey: defaultValue }
   scenarioKnobs   String[] // which drivers appear as scenario sliders
-  iconName        String?  // lucide icon name
+  iconName        String? // lucide icon name
   sortOrder       Int      @default(0)
   isActive        Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  org         Organization? @relation(fields: [orgId], references: [id])
   initiatives Initiative[]
-
-  @@unique([orgId, name])
 }
 
 // ============================================================================
@@ -356,15 +339,15 @@ model InitiativeTemplate {
 // ============================================================================
 
 model Comment {
-  id        String   @id @default(cuid())
-  versionId String
-  authorId  String
-  parentId  String?  // for threading
-  driverKey String?  // optional: tie to specific driver
-  content   String
-  isResolved Boolean @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(cuid())
+  versionId  String
+  authorId   String
+  parentId   String? // for threading
+  driverKey  String? // optional: tie to specific driver
+  content    String
+  isResolved Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   version InitiativeVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
   author  User              @relation(fields: [authorId], references: [id])
@@ -378,23 +361,20 @@ model Comment {
 
 model AuditEvent {
   id           String   @id @default(cuid())
-  orgId        String
   actorId      String?
-  actorEmail   String   // preserve even if user deleted
-  action       String   // DRIVER_UPDATED, VERSION_LOCKED, INITIATIVE_CREATED, etc.
-  resourceType String   // Initiative, DriverValue, Scenario, etc.
+  actorEmail   String // preserve even if user deleted
+  action       String // DRIVER_UPDATED, VERSION_LOCKED, INITIATIVE_CREATED, etc.
+  resourceType String // Initiative, DriverValue, Scenario, etc.
   resourceId   String
   oldValue     Json?
   newValue     Json?
-  metadata     Json?    // additional context
+  metadata     Json? // additional context
   ipAddress    String?
   userAgent    String?
   createdAt    DateTime @default(now())
 
-  org   Organization @relation(fields: [orgId], references: [id])
-  actor User?        @relation(fields: [actorId], references: [id])
+  actor User? @relation(fields: [actorId], references: [id])
 
-  @@index([orgId, createdAt])
   @@index([resourceType, resourceId])
   @@index([actorId, createdAt])
   @@index([action])
@@ -410,9 +390,9 @@ model Attachment {
   originalName String
   mimeType     String
   size         Int
-  storageKey   String   // S3/R2 key
+  storageKey   String // S3/R2 key
   uploadedById String
-  resourceType String   // Initiative, DriverValue, Comment, etc.
+  resourceType String // Initiative, DriverValue, Comment, etc.
   resourceId   String
   createdAt    DateTime @default(now())
 

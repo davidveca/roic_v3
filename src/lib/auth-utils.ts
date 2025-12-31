@@ -2,7 +2,6 @@ import { auth, type ExtendedUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { prisma } from "./db";
-import type { OrgRole, InitiativeRole } from "@prisma/client";
 
 /**
  * Get the current authenticated user session
@@ -26,131 +25,197 @@ export async function requireAuth(): Promise<ExtendedUser> {
 }
 
 /**
- * Require a specific org role or higher
+ * Check if user can access an initiative
+ * Access is granted if: isPublic OR ownerEmail matches OR user is in collaboratorEmails
  */
-export async function requireOrgRole(requiredRole: OrgRole) {
-  const user = await requireAuth();
-
-  const roleHierarchy: Record<OrgRole, number> = {
-    ADMIN: 5,
-    FINANCE: 4,
-    EDITOR: 3,
-    CONTRIBUTOR: 2,
-    VIEWER: 1,
-  };
-
-  if (roleHierarchy[user.orgRole] < roleHierarchy[requiredRole]) {
-    redirect("/unauthorized");
-  }
-
-  return user;
-}
-
-/**
- * Check if user can edit (Editor or higher)
- */
-export async function canEdit() {
-  const user = await getCurrentUser();
-  if (!user) return false;
-  return ["ADMIN", "FINANCE", "EDITOR"].includes(user.orgRole);
-}
-
-/**
- * Check if user can approve/review (Finance or Admin)
- */
-export async function canApprove() {
-  const user = await getCurrentUser();
-  if (!user) return false;
-  return ["ADMIN", "FINANCE"].includes(user.orgRole);
-}
-
-/**
- * Check if user is admin
- */
-export async function isAdmin() {
-  const user = await getCurrentUser();
-  if (!user) return false;
-  return user.orgRole === "ADMIN";
-}
-
-/**
- * Get user's role for a specific initiative
- */
-export async function getInitiativeRole(initiativeId: string): Promise<InitiativeRole | null> {
-  const user = await getCurrentUser();
-  if (!user) return null;
-
-  // First check initiative ownership
-  const initiative = await prisma.initiative.findUnique({
-    where: { id: initiativeId },
-    select: { ownerId: true, orgId: true },
-  });
-
-  if (!initiative) return null;
-
-  // Verify user is in the same org
-  if (initiative.orgId !== user.orgId) return null;
-
-  // Owner always has OWNER role
-  if (initiative.ownerId === user.id) return "OWNER";
-
-  // Check explicit role assignment
-  const userRole = await prisma.initiativeUserRole.findUnique({
-    where: {
-      initiativeId_userId: {
-        initiativeId,
-        userId: user.id,
-      },
-    },
-  });
-
-  if (userRole) return userRole.role;
-
-  // Fall back to org role mapping
-  const orgRoleToInitiativeRole: Partial<Record<OrgRole, InitiativeRole>> = {
-    ADMIN: "OWNER",
-    FINANCE: "REVIEWER",
-    EDITOR: "CONTRIBUTOR",
-    CONTRIBUTOR: "CONTRIBUTOR",
-    VIEWER: "VIEWER",
-  };
-
-  return orgRoleToInitiativeRole[user.orgRole] ?? "VIEWER";
-}
-
-/**
- * Check if user can perform an action on an initiative
- */
-export async function canPerformInitiativeAction(
-  initiativeId: string,
-  action: "view" | "edit" | "approve" | "delete"
+export async function canAccessInitiative(
+  initiativeId: string
 ): Promise<boolean> {
   const user = await getCurrentUser();
   if (!user) return false;
 
-  const role = await getInitiativeRole(initiativeId);
-  if (!role) return false;
+  const initiative = await prisma.initiative.findUnique({
+    where: { id: initiativeId },
+    select: {
+      ownerEmail: true,
+      collaboratorEmails: true,
+      isPublic: true,
+    },
+  });
 
-  const actionPermissions: Record<typeof action, InitiativeRole[]> = {
-    view: ["VIEWER", "CONTRIBUTOR", "REVIEWER", "OWNER"],
-    edit: ["CONTRIBUTOR", "OWNER"],
-    approve: ["REVIEWER", "OWNER"],
-    delete: ["OWNER"],
-  };
+  if (!initiative) return false;
 
-  // Admins can do everything
-  if (user.orgRole === "ADMIN") return true;
+  // Public initiatives are accessible to all authenticated users
+  if (initiative.isPublic) return true;
 
-  return actionPermissions[action].includes(role);
+  // Owner has access
+  if (initiative.ownerEmail.toLowerCase() === user.email.toLowerCase())
+    return true;
+
+  // Check collaborators
+  if (initiative.collaboratorEmails) {
+    const collaborators = initiative.collaboratorEmails
+      .split(",")
+      .map((e) => e.trim().toLowerCase());
+    if (collaborators.includes(user.email.toLowerCase())) return true;
+  }
+
+  return false;
 }
 
 /**
- * Verify user has access to an organization
+ * Check if user can edit an initiative
+ * Owner can always edit, collaborators can only edit if version is DRAFT
  */
-export async function verifyOrgAccess(orgId: string): Promise<boolean> {
+export async function canEditInitiative(
+  initiativeId: string
+): Promise<boolean> {
   const user = await getCurrentUser();
   if (!user) return false;
-  return user.orgId === orgId;
+
+  const initiative = await prisma.initiative.findUnique({
+    where: { id: initiativeId },
+    select: {
+      ownerEmail: true,
+      collaboratorEmails: true,
+      versions: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { state: true },
+      },
+    },
+  });
+
+  if (!initiative) return false;
+
+  // Owner can always edit
+  if (initiative.ownerEmail.toLowerCase() === user.email.toLowerCase())
+    return true;
+
+  // Collaborators can only edit DRAFT versions
+  if (initiative.collaboratorEmails) {
+    const collaborators = initiative.collaboratorEmails
+      .split(",")
+      .map((e) => e.trim().toLowerCase());
+    if (collaborators.includes(user.email.toLowerCase())) {
+      // Check if latest version is DRAFT
+      return initiative.versions[0]?.state === "DRAFT";
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Check if user is the owner of an initiative
+ */
+export async function isInitiativeOwner(
+  initiativeId: string
+): Promise<boolean> {
+  const user = await getCurrentUser();
+  if (!user) return false;
+
+  const initiative = await prisma.initiative.findUnique({
+    where: { id: initiativeId },
+    select: { ownerEmail: true },
+  });
+
+  return (
+    initiative?.ownerEmail.toLowerCase() === user.email.toLowerCase() ?? false
+  );
+}
+
+/**
+ * Check if user is a collaborator on an initiative
+ */
+export async function isCollaborator(initiativeId: string): Promise<boolean> {
+  const user = await getCurrentUser();
+  if (!user) return false;
+
+  const initiative = await prisma.initiative.findUnique({
+    where: { id: initiativeId },
+    select: { collaboratorEmails: true },
+  });
+
+  if (!initiative?.collaboratorEmails) return false;
+
+  const collaborators = initiative.collaboratorEmails
+    .split(",")
+    .map((e) => e.trim().toLowerCase());
+  return collaborators.includes(user.email.toLowerCase());
+}
+
+/**
+ * Require access to an initiative or redirect to unauthorized
+ */
+export async function requireInitiativeAccess(
+  initiativeId: string
+): Promise<ExtendedUser> {
+  const user = await requireAuth();
+  const hasAccess = await canAccessInitiative(initiativeId);
+  if (!hasAccess) {
+    redirect("/unauthorized");
+  }
+  return user;
+}
+
+/**
+ * Require edit permission on an initiative or redirect to unauthorized
+ */
+export async function requireInitiativeEdit(
+  initiativeId: string
+): Promise<ExtendedUser> {
+  const user = await requireAuth();
+  const canEdit = await canEditInitiative(initiativeId);
+  if (!canEdit) {
+    redirect("/unauthorized");
+  }
+  return user;
+}
+
+/**
+ * Get accessible initiatives query filter for the current user
+ * Returns a Prisma where clause for filtering initiatives
+ */
+export async function getAccessibleInitiativesFilter() {
+  const user = await getCurrentUser();
+  if (!user) {
+    return { id: "none" }; // Return impossible filter
+  }
+
+  return {
+    OR: [
+      { isPublic: true },
+      { ownerEmail: { equals: user.email, mode: "insensitive" as const } },
+      {
+        collaboratorEmails: { contains: user.email, mode: "insensitive" as const },
+      },
+    ],
+  };
+}
+
+/**
+ * Get the settings singleton
+ */
+export async function getSettings() {
+  const settings = await prisma.settings.findUnique({
+    where: { id: "singleton" },
+  });
+
+  // Return defaults if settings don't exist yet
+  return (
+    settings ?? {
+      id: "singleton",
+      hurdleRate: 12,
+      taxRate: 25,
+      currency: "USD",
+      companyName: "Wahl Clipper Corporation",
+      fiscalYearStart: 1,
+      boardReviewThreshold: 2000000,
+      lightTouchThreshold: 50000,
+      updatedAt: new Date(),
+    }
+  );
 }
 
 /**
@@ -165,11 +230,10 @@ export async function createAuditEvent(params: {
   metadata?: Record<string, unknown>;
 }) {
   const user = await getCurrentUser();
-  if (!user || !user.orgId) return;
+  if (!user) return;
 
   await prisma.auditEvent.create({
     data: {
-      orgId: user.orgId,
       actorId: user.id,
       actorEmail: user.email,
       action: params.action,

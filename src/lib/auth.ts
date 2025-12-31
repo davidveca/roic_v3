@@ -1,21 +1,23 @@
 import NextAuth from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
-import Credentials from "next-auth/providers/credentials";
-import bcrypt from "bcryptjs";
+import Resend from "next-auth/providers/resend";
 import { prisma } from "./db";
-import type { OrgRole } from "@prisma/client";
 
-// Extended user type for session
+// Simplified user type for session (no org roles)
 export interface ExtendedUser {
   id: string;
   email: string;
   name: string | null;
   image: string | null;
-  orgId: string | null;
-  orgRole: OrgRole;
-  orgName?: string;
-  orgSlug?: string;
 }
+
+// Domain restriction for allowed organizations
+const ALLOWED_DOMAINS = [
+  "@wahlclipper.com",
+  "@tedinitiatives.com",
+  "@wayfinderco.com",
+  "@capstonepartners.com",
+];
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma) as never,
@@ -25,86 +27,41 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   pages: {
     signIn: "/login",
+    verifyRequest: "/check-email",
     error: "/login",
   },
   providers: [
-    Credentials({
-      name: "credentials",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-      },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          return null;
-        }
-
-        const email = credentials.email as string;
-        const password = credentials.password as string;
-
-        const user = await prisma.user.findUnique({
-          where: { email },
-          include: {
-            org: {
-              select: {
-                id: true,
-                name: true,
-                slug: true,
-              },
-            },
-          },
-        });
-
-        if (!user || !user.passwordHash) {
-          return null;
-        }
-
-        const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
-
-        if (!isPasswordValid) {
-          return null;
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          image: user.image,
-          orgId: user.orgId,
-          orgRole: user.orgRole,
-        } as never;
-      },
+    Resend({
+      apiKey: process.env.RESEND_API_KEY,
+      from: process.env.NEXTAUTH_EMAIL_FROM || "ROIC Modeler <noreply@wahlclipper.com>",
     }),
-    // Add more providers here (Google, GitHub, OIDC, SAML, etc.)
   ],
   callbacks: {
+    async signIn({ user }) {
+      // Domain restriction: only allowed domains
+      const email = user.email?.toLowerCase();
+      if (!email || !ALLOWED_DOMAINS.some(domain => email.endsWith(domain))) {
+        return false;
+      }
+      return true;
+    },
     async jwt({ token, user, trigger, session }) {
       // Initial sign in
       if (user) {
-        const u = user as unknown as ExtendedUser;
-        token.id = u.id;
-        token.email = u.email;
-        token.name = u.name;
-        token.image = u.image;
-        token.orgId = u.orgId;
-        token.orgRole = u.orgRole;
-
-        // Fetch org details
-        if (u.orgId) {
-          const org = await prisma.organization.findUnique({
-            where: { id: u.orgId },
-            select: { name: true, slug: true },
-          });
-          if (org) {
-            token.orgName = org.name;
-            token.orgSlug = org.slug;
-          }
-        }
+        token.id = user.id;
+        token.email = user.email;
+        token.name = user.name;
+        token.image = user.image;
       }
 
-      // Handle session updates
+      // Handle session updates (e.g., after profile edit)
       if (trigger === "update" && session) {
-        token = { ...token, ...session };
+        if (session.name !== undefined) {
+          token.name = session.name;
+        }
+        if (session.image !== undefined) {
+          token.image = session.image;
+        }
       }
 
       return token;
@@ -115,10 +72,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         (session.user as unknown as ExtendedUser).email = token.email as string;
         (session.user as unknown as ExtendedUser).name = token.name as string | null;
         (session.user as unknown as ExtendedUser).image = token.picture as string | null;
-        (session.user as unknown as ExtendedUser).orgId = token.orgId as string | null;
-        (session.user as unknown as ExtendedUser).orgRole = token.orgRole as OrgRole;
-        (session.user as unknown as ExtendedUser).orgName = token.orgName as string | undefined;
-        (session.user as unknown as ExtendedUser).orgSlug = token.orgSlug as string | undefined;
       }
       return session;
     },
@@ -134,27 +87,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async signIn({ user, isNewUser }) {
       // Log sign in event for audit trail
       if (user.id && user.email) {
-        const dbUser = await prisma.user.findUnique({
-          where: { id: user.id },
-          select: { orgId: true },
-        });
-
-        if (dbUser?.orgId) {
-          await prisma.auditEvent.create({
-            data: {
-              orgId: dbUser.orgId,
-              actorId: user.id,
-              actorEmail: user.email,
-              action: isNewUser ? "USER_REGISTERED" : "USER_SIGNED_IN",
-              resourceType: "User",
-              resourceId: user.id,
-              metadata: {
-                isNewUser,
-                timestamp: new Date().toISOString(),
-              },
+        await prisma.auditEvent.create({
+          data: {
+            actorId: user.id,
+            actorEmail: user.email,
+            action: isNewUser ? "USER_REGISTERED" : "USER_SIGNED_IN",
+            resourceType: "User",
+            resourceId: user.id,
+            metadata: {
+              isNewUser,
+              timestamp: new Date().toISOString(),
             },
-          });
-        }
+          },
+        });
       }
     },
   },
