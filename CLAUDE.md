@@ -40,12 +40,13 @@ Located in `src/lib/calculations/`:
 - Generates compute hash for reproducibility
 
 ### Templates
-5 pre-built templates in seed:
-1. Freight Optimization
-2. Price/Mix Improvement
-3. Working Capital Improvement
-4. Headcount Productivity
-5. Vendor Consolidation
+6 pre-built templates for Wahl's CPG transformation:
+1. New Product Family - Launch entirely new product categories
+2. Major Line Extension - Extend existing lines with new SKUs
+3. Product or Brand Overhaul - Refresh/reposition existing products
+4. Acquisition - M&A with revenue and cost synergies
+5. SKU Rationalization - Eliminate low-performing SKUs
+6. Headcount Productivity - Labor efficiency improvements
 
 ## Directory Structure
 
