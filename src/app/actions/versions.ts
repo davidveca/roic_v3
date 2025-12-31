@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { requireAuth, createAuditEvent, canPerformInitiativeAction } from "@/lib/auth-utils";
+import { requireAuth, createAuditEvent, canEditInitiative, canAccessInitiative } from "@/lib/auth-utils";
 import {
   createVersionSchema,
   updateVersionStateSchema,
@@ -21,16 +21,11 @@ import {
  * Get a specific version with all its data
  */
 export async function getVersion(versionId: string) {
-  const user = await requireAuth();
-
-  if (!user.orgId) {
-    throw new Error("User is not associated with an organization");
-  }
+  await requireAuth();
 
   const version = await prisma.initiativeVersion.findFirst({
     where: {
       id: versionId,
-      initiative: { orgId: user.orgId },
     },
     include: {
       initiative: {
@@ -81,14 +76,10 @@ export async function getVersion(versionId: string) {
 export async function createVersion(input: CreateVersionInput) {
   const user = await requireAuth();
 
-  if (!user.orgId) {
-    throw new Error("User is not associated with an organization");
-  }
-
   const validated = createVersionSchema.parse(input);
 
   // Verify access
-  const canEdit = await canPerformInitiativeAction(validated.initiativeId, "edit");
+  const canEdit = await canEditInitiative(validated.initiativeId);
   if (!canEdit) {
     throw new Error("You don't have permission to create versions for this initiative");
   }
@@ -209,21 +200,22 @@ export async function createVersion(input: CreateVersionInput) {
 export async function updateVersionState(input: UpdateVersionStateInput) {
   const user = await requireAuth();
 
-  if (!user.orgId) {
-    throw new Error("User is not associated with an organization");
-  }
-
   const validated = updateVersionStateSchema.parse(input);
 
   const existingVersion = await prisma.initiativeVersion.findFirst({
     where: {
       id: validated.versionId,
-      initiative: { orgId: user.orgId },
     },
     include: { initiative: true },
   });
 
   if (!existingVersion) {
+    throw new Error("Version not found");
+  }
+
+  // Check access to initiative
+  const hasAccess = await canAccessInitiative(existingVersion.initiativeId);
+  if (!hasAccess) {
     throw new Error("Version not found");
   }
 
@@ -241,11 +233,10 @@ export async function updateVersionState(input: UpdateVersionStateInput) {
     );
   }
 
-  // Check permissions
+  // In single-tenant mode, only owner can approve
   if (validated.state === "APPROVED") {
-    // Only finance or admin can approve
-    if (!["ADMIN", "FINANCE"].includes(user.orgRole)) {
-      throw new Error("Only Finance or Admin can approve versions");
+    if (existingVersion.initiative.ownerEmail.toLowerCase() !== user.email.toLowerCase()) {
+      throw new Error("Only the initiative owner can approve versions");
     }
   }
 
@@ -280,22 +271,23 @@ export async function updateVersionState(input: UpdateVersionStateInput) {
 export async function updateDriverValues(input: UpdateDriverValuesInput) {
   const user = await requireAuth();
 
-  if (!user.orgId) {
-    throw new Error("User is not associated with an organization");
-  }
-
   const validated = updateDriverValuesSchema.parse(input);
 
   const version = await prisma.initiativeVersion.findFirst({
     where: {
       id: validated.versionId,
-      initiative: { orgId: user.orgId },
     },
     include: { initiative: true },
   });
 
   if (!version) {
     throw new Error("Version not found");
+  }
+
+  // Check edit access
+  const canEdit = await canEditInitiative(version.initiativeId);
+  if (!canEdit) {
+    throw new Error("You don't have permission to update this version");
   }
 
   // Can only update draft versions
@@ -347,23 +339,24 @@ export async function updateDriverValues(input: UpdateDriverValuesInput) {
  * Create a new scenario
  */
 export async function createScenario(input: CreateScenarioInput) {
-  const user = await requireAuth();
-
-  if (!user.orgId) {
-    throw new Error("User is not associated with an organization");
-  }
+  await requireAuth();
 
   const validated = createScenarioSchema.parse(input);
 
   const version = await prisma.initiativeVersion.findFirst({
     where: {
       id: validated.versionId,
-      initiative: { orgId: user.orgId },
     },
     include: { initiative: true },
   });
 
   if (!version) {
+    throw new Error("Version not found");
+  }
+
+  // Check access
+  const hasAccess = await canAccessInitiative(version.initiativeId);
+  if (!hasAccess) {
     throw new Error("Version not found");
   }
 
@@ -400,20 +393,13 @@ export async function createScenario(input: CreateScenarioInput) {
  * Update a scenario
  */
 export async function updateScenario(scenarioId: string, input: UpdateScenarioInput) {
-  const user = await requireAuth();
-
-  if (!user.orgId) {
-    throw new Error("User is not associated with an organization");
-  }
+  await requireAuth();
 
   const validated = updateScenarioSchema.parse(input);
 
   const existing = await prisma.scenario.findFirst({
     where: {
       id: scenarioId,
-      version: {
-        initiative: { orgId: user.orgId },
-      },
     },
     include: {
       version: { include: { initiative: true } },
@@ -421,6 +407,12 @@ export async function updateScenario(scenarioId: string, input: UpdateScenarioIn
   });
 
   if (!existing) {
+    throw new Error("Scenario not found");
+  }
+
+  // Check access
+  const hasAccess = await canAccessInitiative(existing.version.initiativeId);
+  if (!hasAccess) {
     throw new Error("Scenario not found");
   }
 
@@ -449,18 +441,11 @@ export async function updateScenario(scenarioId: string, input: UpdateScenarioIn
  * Delete a scenario
  */
 export async function deleteScenario(scenarioId: string) {
-  const user = await requireAuth();
-
-  if (!user.orgId) {
-    throw new Error("User is not associated with an organization");
-  }
+  await requireAuth();
 
   const existing = await prisma.scenario.findFirst({
     where: {
       id: scenarioId,
-      version: {
-        initiative: { orgId: user.orgId },
-      },
     },
     include: {
       version: { include: { initiative: true } },
@@ -468,6 +453,12 @@ export async function deleteScenario(scenarioId: string) {
   });
 
   if (!existing) {
+    throw new Error("Scenario not found");
+  }
+
+  // Check access
+  const hasAccess = await canAccessInitiative(existing.version.initiativeId);
+  if (!hasAccess) {
     throw new Error("Scenario not found");
   }
 

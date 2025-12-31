@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { requireAuth, createAuditEvent } from "@/lib/auth-utils";
+import { requireAuth, createAuditEvent, canAccessInitiative } from "@/lib/auth-utils";
 import {
   calculateScenarioMetrics,
   calculateConservativeScenario,
@@ -15,19 +15,12 @@ import type { CalculationInputs, CalculationOutput } from "@/lib/calculations/ty
  * Compute and store results for a scenario
  */
 export async function computeScenario(scenarioId: string): Promise<CalculationOutput> {
-  const user = await requireAuth();
-
-  if (!user.orgId) {
-    throw new Error("User is not associated with an organization");
-  }
+  await requireAuth();
 
   // Get scenario with version and driver values
   const scenario = await prisma.scenario.findFirst({
     where: {
       id: scenarioId,
-      version: {
-        initiative: { orgId: user.orgId },
-      },
     },
     include: {
       version: {
@@ -40,6 +33,12 @@ export async function computeScenario(scenarioId: string): Promise<CalculationOu
   });
 
   if (!scenario) {
+    throw new Error("Scenario not found");
+  }
+
+  // Check access
+  const hasAccess = await canAccessInitiative(scenario.version.initiativeId);
+  if (!hasAccess) {
     throw new Error("Scenario not found");
   }
 
@@ -103,16 +102,11 @@ export async function computeAllScenarios(versionId: string): Promise<{
     aggressive: CalculationOutput | null;
   };
 }> {
-  const user = await requireAuth();
-
-  if (!user.orgId) {
-    throw new Error("User is not associated with an organization");
-  }
+  await requireAuth();
 
   const version = await prisma.initiativeVersion.findFirst({
     where: {
       id: versionId,
-      initiative: { orgId: user.orgId },
     },
     include: {
       initiative: true,
@@ -122,6 +116,12 @@ export async function computeAllScenarios(versionId: string): Promise<{
   });
 
   if (!version) {
+    throw new Error("Version not found");
+  }
+
+  // Check access
+  const hasAccess = await canAccessInitiative(version.initiativeId);
+  if (!hasAccess) {
     throw new Error("Version not found");
   }
 
@@ -190,21 +190,24 @@ export async function computeAllScenarios(versionId: string): Promise<{
  * Get stored calculation results for a scenario
  */
 export async function getScenarioResults(scenarioId: string) {
-  const user = await requireAuth();
+  await requireAuth();
 
-  if (!user.orgId) {
-    throw new Error("User is not associated with an organization");
+  const scenario = await prisma.scenario.findFirst({
+    where: { id: scenarioId },
+    include: { version: true },
+  });
+
+  if (!scenario) {
+    throw new Error("Scenario not found");
+  }
+
+  const hasAccess = await canAccessInitiative(scenario.version.initiativeId);
+  if (!hasAccess) {
+    throw new Error("Scenario not found");
   }
 
   const results = await prisma.calculationResult.findMany({
-    where: {
-      scenarioId,
-      scenario: {
-        version: {
-          initiative: { orgId: user.orgId },
-        },
-      },
-    },
+    where: { scenarioId },
     orderBy: { period: "asc" },
   });
 
@@ -218,16 +221,11 @@ export async function previewCalculation(
   versionId: string,
   overrides: Record<string, unknown> = {}
 ): Promise<CalculationOutput> {
-  const user = await requireAuth();
-
-  if (!user.orgId) {
-    throw new Error("User is not associated with an organization");
-  }
+  await requireAuth();
 
   const version = await prisma.initiativeVersion.findFirst({
     where: {
       id: versionId,
-      initiative: { orgId: user.orgId },
     },
     include: {
       driverValues: true,
@@ -235,6 +233,11 @@ export async function previewCalculation(
   });
 
   if (!version) {
+    throw new Error("Version not found");
+  }
+
+  const hasAccess = await canAccessInitiative(version.initiativeId);
+  if (!hasAccess) {
     throw new Error("Version not found");
   }
 
@@ -261,16 +264,11 @@ export async function calculateSensitivity(
   nopatImpact: number[];
   roicImpact: number[];
 }> {
-  const user = await requireAuth();
-
-  if (!user.orgId) {
-    throw new Error("User is not associated with an organization");
-  }
+  await requireAuth();
 
   const version = await prisma.initiativeVersion.findFirst({
     where: {
       id: versionId,
-      initiative: { orgId: user.orgId },
     },
     include: {
       driverValues: true,
@@ -278,6 +276,11 @@ export async function calculateSensitivity(
   });
 
   if (!version) {
+    throw new Error("Version not found");
+  }
+
+  const hasAccess = await canAccessInitiative(version.initiativeId);
+  if (!hasAccess) {
     throw new Error("Version not found");
   }
 

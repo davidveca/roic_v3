@@ -109,6 +109,8 @@ export default function NewInitiativePage() {
         description: description.trim() || undefined,
         templateId: selectedTemplate?.id,
         tags,
+        type: "OTHER",
+        isPublic: false,
       });
 
       toast.success("Initiative created successfully");

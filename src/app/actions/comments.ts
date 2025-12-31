@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { requireAuth, createAuditEvent } from "@/lib/auth-utils";
+import { requireAuth, createAuditEvent, canAccessInitiative } from "@/lib/auth-utils";
 import { z } from "zod";
 
 const createCommentSchema = z.object({
@@ -15,22 +15,23 @@ const createCommentSchema = z.object({
 export async function createComment(input: z.infer<typeof createCommentSchema>) {
   const user = await requireAuth();
 
-  if (!user.orgId) {
-    throw new Error("User is not associated with an organization");
-  }
-
   const validated = createCommentSchema.parse(input);
 
-  // Verify version belongs to user's org
+  // Get version to check access
   const version = await prisma.initiativeVersion.findFirst({
     where: {
       id: validated.versionId,
-      initiative: { orgId: user.orgId },
     },
     include: { initiative: true },
   });
 
   if (!version) {
+    throw new Error("Version not found");
+  }
+
+  // Check access
+  const hasAccess = await canAccessInitiative(version.initiativeId);
+  if (!hasAccess) {
     throw new Error("Version not found");
   }
 
@@ -62,16 +63,9 @@ export async function createComment(input: z.infer<typeof createCommentSchema>) 
 export async function deleteComment(commentId: string) {
   const user = await requireAuth();
 
-  if (!user.orgId) {
-    throw new Error("User is not associated with an organization");
-  }
-
   const comment = await prisma.comment.findFirst({
     where: {
       id: commentId,
-      version: {
-        initiative: { orgId: user.orgId },
-      },
     },
     include: {
       version: { include: { initiative: true } },
@@ -82,8 +76,14 @@ export async function deleteComment(commentId: string) {
     throw new Error("Comment not found");
   }
 
-  // Only author or admin can delete
-  if (comment.authorId !== user.id && user.orgRole !== "ADMIN") {
+  // Check access
+  const hasAccess = await canAccessInitiative(comment.version.initiativeId);
+  if (!hasAccess) {
+    throw new Error("Comment not found");
+  }
+
+  // Only author can delete their comments
+  if (comment.authorId !== user.id) {
     throw new Error("You can only delete your own comments");
   }
 

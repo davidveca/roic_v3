@@ -53,7 +53,6 @@ export default async function DriversPage() {
   await requireAuth();
 
   const drivers = await prisma.driverDefinition.findMany({
-    where: { orgId: null }, // System drivers
     orderBy: [{ category: "asc" }, { sortOrder: "asc" }, { name: "asc" }],
   });
 

@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/db";
-import { requireAuth } from "@/lib/auth-utils";
+import { requireAuth, getAccessibleInitiativesFilter } from "@/lib/auth-utils";
 
 interface PortfolioMetrics {
   totalInitiatives: number;
@@ -30,15 +30,14 @@ interface PortfolioMetrics {
 }
 
 export async function getPortfolioMetrics(): Promise<PortfolioMetrics> {
-  const user = await requireAuth();
+  await requireAuth();
 
-  if (!user.orgId) {
-    throw new Error("User is not associated with an organization");
-  }
+  // Get filter for accessible initiatives
+  const accessFilter = await getAccessibleInitiativesFilter();
 
-  // Get all initiatives with their latest version and results
+  // Get all accessible initiatives with their latest version and results
   const initiatives = await prisma.initiative.findMany({
-    where: { orgId: user.orgId },
+    where: accessFilter,
     include: {
       owner: { select: { name: true, email: true } },
       versions: {

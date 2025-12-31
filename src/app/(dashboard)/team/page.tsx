@@ -15,14 +15,13 @@ export default async function TeamPage() {
           Team Members
         </h1>
         <p className="text-muted-foreground mt-1">
-          Manage your organization's team and permissions.
+          Users with access to the ROIC workspace.
         </p>
       </div>
 
       <TeamList
         members={members}
         currentUserId={user.id}
-        isAdmin={user.orgRole === "ADMIN"}
       />
     </div>
   );

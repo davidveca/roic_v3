@@ -120,9 +120,8 @@ export async function isInitiativeOwner(
     select: { ownerEmail: true },
   });
 
-  return (
-    initiative?.ownerEmail.toLowerCase() === user.email.toLowerCase() ?? false
-  );
+  if (!initiative) return false;
+  return initiative.ownerEmail.toLowerCase() === user.email.toLowerCase();
 }
 
 /**
